@@ -1,0 +1,53 @@
+# Neko on a Hetzner VPS — Tor Browser (default) with an optional XFCE desktop.
+#
+# This is a deployment config, NOT the repo's dev compose. Copy this folder to
+# your server and run `docker compose up -d`. See README.md in this folder for
+# the full walkthrough (firewall ports, HTTPS, PWA install).
+#
+# Persistence: the browser profile lives in a named volume, so `docker restart`,
+# a server reboot, or a phone-tab reload all KEEP your session, tabs, and data.
+
+services:
+  # ---- Tor Browser (this is the "load Tor" piece) ------------------------
+  neko:
+    image: "ghcr.io/m1k1o/neko/tor-browser:latest"
+    restart: "unless-stopped"
+    shm_size: "2gb"
+    ports:
+      - "8080:8080"                 # web UI (put behind HTTPS — see README/Caddy)
+      - "52000-52100:52000-52100/udp"  # WebRTC media (open these UDP ports too)
+    environment:
+      NEKO_DESKTOP_SCREEN: "1280x720@30"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: "CHANGE_ME_user"
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: "CHANGE_ME_admin"
+      NEKO_WEBRTC_EPR: "52000-52100"
+      NEKO_WEBRTC_ICELITE: "1"
+      # REQUIRED on a cloud VPS: set this to your server's PUBLIC IPv4 so WebRTC
+      # advertises the right address. Replace with your Hetzner IP (or domain).
+      NEKO_WEBRTC_NAT1TO1: "YOUR.SERVER.PUBLIC.IP"
+    volumes:
+      - neko-profile:/home/neko     # persists the Tor Browser profile/session
+
+  # ---- Full XFCE desktop -------------------------------------------------
+  # A full Linux desktop (install/run anything in it). SEPARATE session on
+  # port 8081 — budget ~2GB extra RAM for it (a 4GB CX22 handles both).
+  neko-desktop:
+    image: "ghcr.io/m1k1o/neko/xfce:latest"
+    restart: "unless-stopped"
+    shm_size: "2gb"
+    ports:
+      - "8081:8080"
+      - "52200-52300:52200-52300/udp"
+    environment:
+      NEKO_DESKTOP_SCREEN: "1280x720@30"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: "CHANGE_ME_user"
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: "CHANGE_ME_admin"
+      NEKO_WEBRTC_EPR: "52200-52300"
+      NEKO_WEBRTC_ICELITE: "1"
+      NEKO_WEBRTC_NAT1TO1: "YOUR.SERVER.PUBLIC.IP"
+    volumes:
+      - neko-desktop:/home/neko
+
+volumes:
+  neko-profile:
+  neko-desktop:
